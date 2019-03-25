@@ -16,7 +16,7 @@ app.use((req, res, next) => {
   });
 
 app.use("/api/v1/products", products);
-// app.use("/login/users", users);
+// app.use("/api/v1/users", users);
 // app.use("/login", login);
 // app.use("/", index);
 
