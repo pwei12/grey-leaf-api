@@ -2,7 +2,7 @@ const express = require("express");
 const app = express();
 
 const products = require("./routes/products");
-// const users = require("./routes/users");
+const users = require("./routes/users");
 // const login = require("./routes/login");
 // const index = require("./routes/index");
 
@@ -16,7 +16,7 @@ app.use((req, res, next) => {
   });
 
 app.use("/api/v1/products", products);
-// app.use("/api/v1/users", users);
+app.use("/api/v1/users", users);
 // app.use("/login", login);
 // app.use("/", index);
 
