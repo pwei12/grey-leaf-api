@@ -4,17 +4,29 @@ var jwt = require('jsonwebtoken');
 const User = require("../models/user");
 const router = express.Router();
 
-const isAuthorized = async(req, res, next) => {
+const isUserValid = async(req, res, next)  => {
     try{
         const {name, email, password} = req.body;
         const loginBy = name||email;
         if(!(loginBy && password)) return res.sendStatus(404);
         const query = name ? {name} : {email};
         const user = await User.findOne(query);
-        if(!user) return res.status(400).send("User not found.");
-        const verified = await bcrypt.compare(password, user.password);
-        if(verified) return next();
-        return res.status(401).send("You are not authorized to log in.");
+        if(!user) return res.status(400).send("Invalid user.");
+        res.locals.user = user;
+        res.locals.password = password;
+        next();
+    } catch(err) {
+        return res.status(500).send(err);
+    }
+};
+
+const isUserAuthorized = async(req, res, next) => {
+    try{
+        const {password} = req.body;
+        if (!res.locals.user) return res.status(422).send("Invalid user.");
+        const verified = await bcrypt.compare(password, res.locals.user.password);
+        if(!verified) return res.status(401).send("You are not authorized to log in.");
+        next();
     } catch(err) {
         return res.status(500).send(err);
     }
@@ -23,13 +35,15 @@ const isAuthorized = async(req, res, next) => {
 const saltRounds = 10;
 
 router
-    .route("/register")
-    .post(async(req, res) => {
+    .route("/signup")
+    .post(isUserValid, async(req, res) => {
         try{
+            if(res.locals.user) return res.status(422).send("User already existed.")
             const {name, email, password, confirmedPassword} = req.body;
             if(!(name && email && password && confirmedPassword)) return res.sendStatus(400);
             if(password===confirmedPassword) {
                 const hash = await bcrypt.hash(password, saltRounds);
+                if(!hash) return res.sendStatus(500);
                 const userData = {
                     name,
                     email,
@@ -49,19 +63,26 @@ router
 
 router
     .route("/login")
-    .post(isAuthorized, async(req, res) => {
+    .post([isUserValid, isUserAuthorized], async(req, res) => {
         try{
-            const {name, email, password} = req.body;
-            const payload = name ? {name, password} : {email, password} ;
-            const token =  await jwt.sign(payload, 'shhhhh');
-            return res.cookie("token", token).status(200).send("You are logged in");
+            const {name, email} = req.body;
+            const payload = name ? {name} : {email} ;
+            const token =  await jwt.sign(payload, 'shhhhh'); //secret string to be stored in which file?
+            return res.cookie("token", token).status(200).send("You are logged in."); //cookie opts maxAge, secure, signed?
         } catch(err) {
             return res.status(500).send(err);
         }
     });
 
-//log out route
-//  res.clearCookie(name [, options]) https://expressjs.com/en/4x/api.html#res.cookie
+router
+    .route("/logout")
+    .post(isUserValid, async(req, res) => {
+        try{
+            return res.clearCookie(req.cookies.token).status(200).send("You are logged out.");
+        } catch(err) {
+            return res.status(500).send(err);
+        }
+    });
 
 router
     .route("/:id")
