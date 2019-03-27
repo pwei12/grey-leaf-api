@@ -11,25 +11,26 @@ const isIdValid = (req, res, next) => {
 }
 router
   .route("/")
-  .get((req, res) => {
-    Product.find()
-    .then(product => {
-      if(!product) return res.status(404).send("No product found");
-      return res.status(200).json(product);
-    })
-    .catch(err => {
+  .get(async(req, res) => {
+    try{
+      const products = await Product.find()
+      if(!products) return res.status(404).send("No product found");
+      return res.status(200).json(products);
+    }
+    catch(err) {
       return res.status(500).send(err);
-    });
+    };
   })
-  .post((req, res) => {
-    const newProduct = new Product(req.body);
-    newProduct.save()
-    .then(product => {
-      return res.status(201).json(product);
-    })
-    .catch(err => {
+  .post(async(req, res) => {
+    try{
+      const newProduct = new Product(req.body);
+      await Product.init();
+      await newProduct.save();
+      if(!newProduct) return res.status(503).send("Unable to save new product.")
+      return res.status(201).json(newProduct);
+    }catch(err) {
       return res.status(500).send(err);
-    });
+    }
   });
 
 router
@@ -38,7 +39,7 @@ router
   const id = req.params.id;
   Product.findById(id)
     .then(product=> { 
-      if(!product) return res.status(404).send("Product is not found");
+      if(!product) return res.status(404).send("Product not found");
       return res.status(200).json(product);
     })
     .catch((err)=> {
@@ -50,7 +51,7 @@ router
   Product.findByIdAndUpdate(id, req.body, {runValidators: true, new:true})
   .then(product => {
     if(!product) return res.status(404).send("Product not found");
-    return res.json(product);
+    return res.status(202).json(product);
   })
   .catch(err => {
     return res.status(500).send(err);
