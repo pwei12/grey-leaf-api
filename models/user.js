@@ -5,6 +5,7 @@ const userSchema = new mongoose.Schema({
     name: {
         type: String,
         lowercase: true,
+        maxlength: 20,
         index: {unique: true},
         required: true,
         trim: true,
@@ -20,11 +21,9 @@ const userSchema = new mongoose.Schema({
         required: true,
         trim: true
     },
-    role: {
-        type: String,
-        enum: ["admin", "customer"],
-        default: "customer",
-        trim: true
+    admin: {
+        type: Boolean,
+        default: false
     },
     cart: {
         type: [ObjectId], 
