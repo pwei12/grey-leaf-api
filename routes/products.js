@@ -35,38 +35,38 @@ router
 
 router
 .route("/:id")
-.get(isIdValid, (req, res) => {
-  const id = req.params.id;
-  Product.findById(id)
-    .then(product=> { 
-      if(!product) return res.status(404).send("Product not found");
-      return res.status(200).json(product);
-    })
-    .catch((err)=> {
+.get(isIdValid, async(req, res) => {
+  try{
+    const id = req.params.id;
+    const product = await Product.findById(id);
+    if(!product) return res.status(404).send("Product not found");
+    return res.status(200).json(product);
+  }
+  catch(err) {
       return res.status(500).send(err);
-    });
+  };
 })
-.put(isIdValid, (req, res) => {
-  const id = req.params.id;
-  Product.findByIdAndUpdate(id, req.body, {runValidators: true, new:true})
-  .then(product => {
+.put(isIdValid, async(req, res) => {
+  try{
+    const id = req.params.id;
+    const product = await Product.findByIdAndUpdate(id, req.body, {runValidators: true, new:true})
     if(!product) return res.status(404).send("Product not found");
     return res.status(202).json(product);
-  })
-  .catch(err => {
+  }
+  catch(err) {
     return res.status(500).send(err);
-  });
+  };
 })
-.delete(isIdValid, (req, res) => {
-  const id = req.params.id;
-  Product.findByIdAndDelete(id)
-  .then(product => {
+.delete(isIdValid, async(req, res) => {
+  try{
+    const id = req.params.id;
+    const product = await Product.findByIdAndDelete(id);
     if(!product) return res.status(404).send("Product not found");
     return res.sendStatus(202);
-  })
-  .catch(err => {
+  }
+  catch(err) {
     return res.status(500).send(err);
-  });
+  };
 });
 
 module.exports = router;
