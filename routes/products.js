@@ -1,14 +1,8 @@
-const mongoose = require("mongoose");
 const express = require("express");
 const router = express.Router();
 // const { products } = require("../data/db.json");
 const Product = require("../models/product");
 
-const isIdValid = (req, res, next) => {
-  if (!mongoose.Types.ObjectId.isValid(req.params.id)) 
-  return res.status(400).send("Invalid ID");
-  next();
-}
 router
   .route("/")
   .get(async(req, res) => {
@@ -35,7 +29,7 @@ router
 
 router
 .route("/:id")
-.get(isIdValid, async(req, res) => {
+.get(async(req, res) => {
   try{
     const id = req.params.id;
     const product = await Product.findById(id);
@@ -46,7 +40,7 @@ router
       return res.status(500).send(err);
   };
 })
-.put(isIdValid, async(req, res) => {
+.put(async(req, res) => {
   try{
     const id = req.params.id;
     const product = await Product.findByIdAndUpdate(id, req.body, {runValidators: true, new:true})
@@ -57,7 +51,7 @@ router
     return res.status(500).send(err);
   };
 })
-.delete(isIdValid, async(req, res) => {
+.delete(async(req, res) => {
   try{
     const id = req.params.id;
     const product = await Product.findByIdAndDelete(id);
