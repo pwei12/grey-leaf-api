@@ -1,6 +1,5 @@
 const mongoose = require("mongoose");
 const app = require("./app");
-const seedProducts = require("./seed");
 
 if (process.env.NODE_ENV !== "production") {
   require("dotenv").config();
@@ -24,15 +23,6 @@ db.once("open", () => {
   app.listen(port, () => {
     if (process.env.NODE_ENV === "production") {
       console.log(`Server is running on Heroku with port number ${port}`);
-
-      seedProducts()
-        .then(docs => {
-          console.log("😊 Successfully seeded products");
-        })
-        .catch(err => {
-          console.error("❌ Failed to seed products");
-        });
-    } else {
       console.log(`Server is running on http://localhost:${port}`);
     }
   });
