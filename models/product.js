@@ -8,7 +8,7 @@ const productSchema = new mongoose.Schema({
         trim: true
     },
     price: {
-        type: Number, //OR https://www.npmjs.com/package/mongoose-float, http://plugins.mongoosejs.io/plugins/double
+        type: Number,
         required: true,
     },
     d: {
@@ -20,11 +20,7 @@ const productSchema = new mongoose.Schema({
     url: {
         type: String,
         required: true,
-        alias: "imageUrl",
-        // validate: { 
-        //     validator: value => validator.isURL(value, { protocols: ['http','https','ftp'], require_tld: true, require_protocol: true }),
-        //     message: 'Must be a Valid URL' 
-        //   } //OR https://www.npmjs.com/package/mongoose-type-url
+        alias: "imageUrl"
     },
     inC: {
         type: Boolean,
