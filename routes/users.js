@@ -1,36 +1,10 @@
 const express = require("express");
-const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
 const User = require("../models/user");
 const router = express.Router();
+const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
 
-const isUserAlreadyExist = async (req, res, next) => {
-  try {
-    const { name, email, password } = req.body;
-    const loginBy = name || email;
-    if (!(loginBy && password)) return res.sendStatus(404);
-    const query = name ? { name } : { email };
-    const user = await User.findOne(query);
-    res.locals.user = user;
-    res.locals.password = password;
-    next();
-  } catch (err) {
-    return res.status(500).json(err);
-  }
-};
-
-const isUserAuthorized = async (req, res, next) => {
-  try {
-    const { password } = req.body;
-    if (!res.locals.user) return res.status(422).json("Invalid user.");
-    const verified = await bcrypt.compare(password, res.locals.user.password);
-    if (!verified)
-      return res.status(401).json("You are not authorized to log in.");
-    next();
-  } catch (err) {
-    return res.status(500).json(err);
-  }
-};
+const saltRounds = 10;
 
 const verifyToken = async (req, res, next) => {
   try {
@@ -43,89 +17,104 @@ const verifyToken = async (req, res, next) => {
   }
 };
 
-const saltRounds = 10;
-
-router.route("/signup").post(isUserAlreadyExist, async (req, res) => {
+router.route("/").get(async (req, res) => {
   try {
-    if (res.locals.user) return res.status(403).json("User already exist.");
-    const { name, email, password, confirmedPassword } = req.body;
-    if (!(name && email && password && confirmedPassword))
-      return res.status(400).json("Missing field");
-    if (password === confirmedPassword) {
-      const hash = await bcrypt.hash(password, saltRounds);
-      if (!hash) return res.sendStatus(500);
-      const userData = {
-        name,
-        email,
-        password: hash
-      };
-      const newUser = new User(userData);
-      await User.init();
-      await newUser.save();
-      const userSaved = await User.findOne({ name });
-      return res.status(202).json(userSaved);
-    } else {
-      return res.status(400).json("Please confirm your password again.");
-    }
+    const users = await User.find();
+    if (users.length < 1) return res.status(404).json("No user found");
+    return res.status(200).json(users);
   } catch (err) {
     return res.status(500).json(err);
   }
 });
 
 router
-  .route("/login")
-  .post([isUserAlreadyExist, isUserAuthorized], async (req, res) => {
+  .route("/:id")
+  .get(verifyToken, async (req, res) => {
     try {
-      const { name, email } = req.body;
-      const payload = name ? { name } : { email };
-      const token = await jwt.sign(payload, "shhhhh"); //secret string to be stored in which file?
-      const { _id: id } = await User.findOne(payload);
-      return res
-        .cookie("token", token) 
-        .status(200)
-        .json(id);
+      const id = req.params.id;
+      const user = await User.findById(id);
+      if (!user) return res.status(404).json("User not found.");
+      return res.status(200).json({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        cart: user.cart
+      });
+    } catch (err) {
+      return res.status(500).json(err);
+    }
+  })
+  .put(verifyToken, async (req, res) => {
+    try {
+      const id = req.params.id;
+      const user = await User.findById(id);
+      const {email, password, confirmedPassword} = req.body;
+      if (!user) return res.status(404).json("User not found.");
+      if (email) {
+        await User.findByIdAndUpdate(id, { email });
+      }
+      if (password && confirmedPassword) {
+        if (password !== confirmedPassword)
+        return res.status(400).json("Please confirm your password again.");
+        const hash = await bcrypt.hash(password, saltRounds);
+        await User.findByIdAndUpdate(id, { password: hash });
+      }
+      return res.status(202).json({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        cart: user.cart
+      });
     } catch (err) {
       return res.status(500).json(err);
     }
   });
 
-router.route("/:id/logout").post(verifyToken, async (req, res) => {
-  try {
-    const token = req.cookies.token;
-    return res
-      .clearCookie(token)
-      .status(200)
-      .json("You are logged out.");
-  } catch (err) {
-    return res.status(500).json(err);
-  }
-});
-
-router.route("/:id").get(verifyToken, async (req, res) => {
-  try {
-    const id = req.params.id;
-    const user = await User.findById(id);
-    if (!user) return res.status(404).json("User not found.");
-    return res.status(200).json(user);
-  } catch (err) {
-    return res.status(500).json(err);
-  }
-});
-
 router
-.route("/:id/cart")
-.post(verifyToken, async (req, res) => {
-  try {
-    const id = req.params.id;
-    const user = await User.findById(id);
-    const item = req.body;
-    await user.cart.push(item);
-    await User.init();
-    await user.save();
-    const userSaved = await User.findById(id);
-    return res.status(202).json(userSaved);
-  } catch (err) {
-    return res.status(500).json(err);
-  }
-});
+  .route("/:id/cart")
+  .get(verifyToken, async (req, res) => {
+    try {
+      const user = await User.findById(req.params.id);
+      return res.status(202).json(user.cart);
+    } catch (err) {
+      return res.status(500).json(err);
+    }
+  })
+  .post(verifyToken, async (req, res) => {
+    try {
+      const user = await User.findById(req.params.id);
+      const item = req.body;
+      await user.cart.push(item);
+      await User.init();
+      const userSaved = await user.save();
+      return res.status(202).json(userSaved.cart);
+    } catch (err) {
+      return res.status(500).json(err);
+    }
+  })
+  .put(verifyToken, async (req, res) => {
+    try {
+      const userId = req.params.id;
+      const user = await User.findById(userId);
+      const item = user.cart.id(req.body.itemId);
+      item.set(req.body.item);
+      await User.findByIdAndUpdate(userId, { cart: user.cart });
+      return res.status(202).json(user.cart);
+    } catch (err) {
+      return res.status(500).json(err);
+    }
+  })
+  .delete(verifyToken, async (req, res) => {
+    try {
+      const userId = req.params.id;
+      const user = await User.findById(userId);
+      await user.cart.id(req.body.itemId).remove();
+      await User.init();
+      const userSaved = await user.save();
+      return res.status(202).json(userSaved.cart);
+    } catch (err) {
+      return res.status(500).json(err);
+    }
+  });
+
 module.exports = router;

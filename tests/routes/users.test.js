@@ -4,14 +4,17 @@ const { MongoMemoryServer } = require("mongodb-memory-server");
 const app = require("../../app");
 const User = require("../../models/user");
 const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
+
 jest.mock("bcrypt");
+jest.mock("jsonwebtoken");
 
 const route = (params = "") => {
   const path = "/api/v1/users";
   return `${path}/${params}`;
 };
 
-describe("/users/signup", () => {
+describe("/users", () => {
   let mongoServer;
   let db;
   beforeAll(async () => {
@@ -22,118 +25,57 @@ describe("/users/signup", () => {
     mongoose.set("useCreateIndex", true);
     await mongoose.connect(mongoUri);
     db = mongoose.connection;
+
+    await User.insertMany([
+      {
+        admin: true,
+        name: "admin",
+        email: "admin@email.com",
+        password: "hello789",
+        cart: []
+      },
+      {
+        admin: false,
+        name: "customer1",
+        email: "@email.com",
+        password: "hello789",
+        cart: []
+      },
+      {
+        admin: false,
+        name: "customer2",
+        email: "aswr@email.com",
+        password: "123abg",
+        cart: []
+      }
+    ]);
   });
 
   afterAll(async () => {
+    await db.dropCollection("users");
     mongoose.disconnect();
     await mongoServer.stop();
   });
 
-  test("[POST] Should add a new user", async () => {
-    const newUser = {
-      name: "adminName",
-      email: "admin1@email.com",
-      password: "$2b$10$Ow0at",
-      confirmedPassword: "$2b$10$Ow0at"
-    };
+  test("[GET] Should return details of all users and status code 200", async () => {
+    const users = await User.find();
     const res = await request(app)
-      .post(route("signup"))
-      .send(newUser)
-      .expect(202);
-    const expected = {
-      _id: expect.any(String),
-      admin: expect.any(Boolean),
-      name: newUser.name.toLowerCase(),
-      email: newUser.email,
-      password: expect.any(String),
-      cart: expect.any(Array)
-    };
-    expect(res.body).toEqual(expect.objectContaining(expected));
-    await db.dropCollection("users");
+      .get(route())
+      .expect(200);
+    expect(res.body.length).toEqual(users.length);
   });
 
-  test("[POST] Should return status code 400 if password doesn't match", async () => {
-    const newUser = {
-      name: "adminName",
-      email: "admin1@email.com",
-      password: "$2b$10$Ow0at",
-      confirmedPassword: "$2b$10$O"
-    };
+  test("[GET] Should get no user and status code 404", async () => {
+    await User.deleteMany({});
+    const uses = await User.find();
     const res = await request(app)
-      .post(route("signup"))
-      .send(newUser)
-      .expect(400);
-  });
-
-  test("[POST] Should return status code 403 for user already exist", async () => {
-    const newUser = {
-      name: "adminName",
-      email: "admin1@email.com",
-      password: "$2b$10$Ow0at",
-      confirmedPassword: "$2b$10$Ow0at"
-    };
-    await User.create(newUser);
-    await request(app)
-      .post(route("signup"))
-      .send(newUser)
-      .expect(403);
-    await db.dropCollection("users");
-  });
-
-  test("[POST] Should return status code 400 if name field is missing", async () => {
-    const newUser = {
-      email: "admin1@email.com",
-      password: "r6oi4UGnQWFjMw8ZWynne",
-      confirmedPassword: "r6oi4UGnQWFjMw8ZWynne"
-    };
-    const res = await request(app)
-      .post(route("signup"))
-      .send(newUser)
-      .expect(400);
-    expect(res.body).toEqual({});
-  });
-
-  test("[POST] Should return status code 400 if email field is missing", async () => {
-    const newUser = {
-      name: "adminName",
-      password: "r6oi4UGnQWFjMw8ZWynne",
-      confirmedPassword: "r6oi4UGnQWFjMw8ZWynne"
-    };
-    const res = await request(app)
-      .post(route("signup"))
-      .send(newUser)
-      .expect(400);
-    expect(res.body).toEqual({});
-  });
-  // test failing
-  test("[POST] Should return status code 400 if password field is missing", async () => {
-    const newUser = {
-      name: "adminName",
-      email: "admin1@email.com",
-      confirmedPassword: "r6oi4UGnQWFjMw8ZWynne"
-    };
-    const res = await request(app)
-      .post(route("signup"))
-      .send(newUser)
-      .expect(400);
-    expect(res.body).toEqual({});
-  });
-
-  test("[POST] Should return status code 400 if confirmedPassword field is missing", async () => {
-    const newUser = {
-      name: "adminName",
-      email: "admin1@email.com",
-      password: "r6oi4UGnQWFjMw8ZWynne"
-    };
-    const res = await request(app)
-      .post(route("signup"))
-      .send(newUser)
-      .expect(400);
-    expect(res.body).toEqual({});
+      .get(route())
+      .expect(404);
+    expect(res.body).toBe("No user found");
   });
 });
 
-describe("/users/login", () => {
+describe("/users/:id", () => {
   let mongoServer;
   let db;
   beforeAll(async () => {
@@ -149,7 +91,7 @@ describe("/users/login", () => {
       {
         admin: false,
         name: "customer1",
-        email: "@email.com",
+        email: "abc@email.com",
         password: "hello789",
         cart: []
       },
@@ -170,69 +112,47 @@ describe("/users/login", () => {
   });
 
   afterEach(async () => {
-    bcrypt.compare.mockRestore();
+    jwt.verify.mockRestore();
   });
 
-  test("[POST] Should return status code 200 when a user login by username successfully", async () => {
-    bcrypt.compare.mockResolvedValue(true);
+  test("[GET] Should return user's id and cart with status code 200 provided the token is verified", async () => {
     const user = {
-      name: "customer2",
-      password: "123abg"
-    };
-    await request(app)
-      .post(route("login"))
-      .send(user)
-      .expect(200);
-  });
-
-  test("[POST] Should return status code 200 when a user login by email successfully", async () => {
-    bcrypt.compare.mockResolvedValue(true);
-    const user = {
-      email: "@email.com",
-      password: "123abg"
-    };
-    await request(app)
-      .post(route("login"))
-      .send(user)
-      .expect(200);
-  });
-
-  test("[POST] Should return status code 422, 'Invalid user', when user logging in by username is not found", async () => {
-    const user = {
-      name: "customer5",
-      password: "123abg"
-    };
-    await request(app)
-      .post(route("login"))
-      .send(user)
-      .expect(422);
-  });
-
-  test("[POST] Should return status code 422, 'Invalid user', when user logging in by email is not found", async () => {
-    const user = {
-      email: "sswr@email.com",
+      name: "customer1",
       password: "hello789"
     };
+    await bcrypt.compare.mockResolvedValue(true);
     await request(app)
-      .post(route("login"))
-      .send(user)
-      .expect(422);
+      .post("/api/v1/auth/login")
+      .send(user);
+
+    await jwt.verify.mockResolvedValue(user);
+    const expectedUser = await User.findOne({ name: "customer1" });
+    const res = await request(app)
+      .get(route(expectedUser._id))
+      .expect(200);
+    expect(res.body).toEqual(expect.objectContaining({
+      id: `${expectedUser._id}`,
+      cart: expect.any(Array)
+    }))
+    await bcrypt.compare.mockRestore();
   });
 
-  test("[POST] Should return status code 401 when a user is not authorized", async () => {
-    bcrypt.compare.mockResolvedValue(false);
-    const user = {
-      name: "customer2",
-      password: "123"
-    };
+  test("[GET] Should return status code 403 as token is invalid", async () => {
+    const { _id } = await User.findOne({ name: "customer1" });
     await request(app)
-      .post(route("login"))
-      .send(user)
-      .expect(401);
+      .get(route(_id))
+      .expect(403);
+  });
+
+  test("[GET] Should return status code 404 as user is not found", async () => {
+    jwt.verify.mockResolvedValue({ name: "customer1" });
+    await request(app)
+      .get(route("5c9f307cbfef67aaaaa00000"))
+      .expect(404);
   });
 });
 
-describe.only("/users/:id", () => {
+xdescribe("/user/:id/cart", () => {
   let mongoServer;
   let db;
   beforeAll(async () => {
@@ -248,9 +168,18 @@ describe.only("/users/:id", () => {
       {
         admin: false,
         name: "customer1",
-        email: "@email.com",
+        email: "abc@email.com",
         password: "hello789",
-        cart: []
+        cart: [
+          {
+            product: ["5c9da13f938c51001ea3c560"],
+            quantity: 12
+          },
+          {
+            product: ["5c9d9cc65f9be831985e48f6"],
+            quantity: 3
+          }
+        ]
       },
       {
         admin: false,
@@ -268,24 +197,24 @@ describe.only("/users/:id", () => {
     await mongoServer.stop();
   });
 
-  test("[GET] Should return user's details and status code 200 as the token in cookies is verified", async () => {
+  test("[GET] Should return user's cart with status code 200 provided the token is verified", async () => {
+    const user = {
+      name: "customer1",
+      password: "hello789"
+    };
+    await bcrypt.compare.mockResolvedValue(true);
+    await request(app)
+      .post("/api/v1/auth/login")
+      .send(user);
+
+    await jwt.verify.mockResolvedValue(user);
     const expectedUser = await User.findOne({ name: "customer1" });
     const res = await request(app)
-      .get(route(expectedUser._id))
+      .get(route(`${expectedUser._id}/cart`))
       .expect(200);
-    expect(res.body).toEqual(
-      expect.objectContaining({
-        _id: expect.any(String),
-        admin: false,
-        name: expectedUser.name.toLowerCase(),
-        email: expectedUser.email,
-        password: expect.any(String),
-        cart: expect.any(Array)
-      })
-    );
+      console.log("HELLO",res.body);
+    expect(res.body).toEqual(expect.arrayContaining(expect.any(Array)))
+    await bcrypt.compare.mockRestore();
   });
 
-  test("[GET] Should return status code 403 token is invalid", async () => {});
-  test("[GET] Should return status code 400 as user ID is invalid", async () => {});
-  test("[GET] Should return status code 404 as user is not found", async () => {});
 });
