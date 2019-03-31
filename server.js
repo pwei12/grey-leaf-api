@@ -19,10 +19,11 @@ db.on("error", err => {
 });
 
 db.once("open", () => {
-  console.log("Connected to database");
+  console.log("Connected to database in", process.env.NODE_ENV, "environment");
   app.listen(port, () => {
     if (process.env.NODE_ENV === "production") {
       console.log(`Server is running on Heroku with port number ${port}`);
+    } else {
       console.log(`Server is running on http://localhost:${port}`);
     }
   });
