@@ -9,14 +9,14 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 let host;
 if (process.env.NODE_ENV !== "production") {
-  host = "http://localhost:3000"
+  host = "http://localhost:3000";
 } else {
   host = "https://grey-leaf-api.herokuapp.com";
 }
 app.use(async (req, res, next) => {
   await res.header("Access-Control-Allow-Origin", host);
-  // res.header("Access-Control-Allow-Methods", "GET, PUT, POST, DELETE");
-  // res.header("Access-Control-Allow-Headers", "Content-Type");
+  await res.header("Access-Control-Allow-Methods", "GET, PUT, POST, DELETE");
+  await res.header("Access-Control-Allow-Headers", "Content-Type");
   next();
 });
 
