@@ -27,7 +27,7 @@ router
     try {
       const product = await Product.findByIdAndDelete(req.body._id);
       if (!product) return res.status(404).send("Product not found");
-      return res.sendStatus(204);
+      return res.status(200).send("Product is deleted");
     } catch (err) {
       return res.status(500).send(err);
     }
