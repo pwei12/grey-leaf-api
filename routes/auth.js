@@ -4,6 +4,16 @@ const jwt = require("jsonwebtoken");
 const User = require("../models/user");
 const router = express.Router();
 
+const isAdmin = async email => {
+  try {
+    const user = await User.findOne({ email });
+    if (!user.admin) return res.sendStatus(403);
+    return user;
+  } catch (err) {
+    throw new Error(err);
+  }
+};
+
 const isUserAlreadyExist = async (username, email) => {
   try {
     const query = username ? { name: username } : { email };
@@ -18,7 +28,7 @@ const saltRounds = 10;
 
 router.route("/signup").post(async (req, res) => {
   try {
-    const { name, email, password, confirmedPassword } = req.body;
+    const { name, email, password, confirmedPassword, admin } = req.body;
     if (!(name && email && password && confirmedPassword))
       return res.status(400).json("Incomplete field.");
     const user = await isUserAlreadyExist(name, email);
@@ -27,9 +37,10 @@ router.route("/signup").post(async (req, res) => {
       return res.status(400).json("Please confirm your password again.");
     const hash = await bcrypt.hash(password, saltRounds);
     const userData = {
-      name: req.body.name,
-      email: req.body.email,
-      password: hash
+      name,
+      email,
+      password: hash,
+      admin
     };
     const newUser = await new User(userData);
     await User.init();
@@ -40,16 +51,32 @@ router.route("/signup").post(async (req, res) => {
   }
 });
 
-router.route("/login").post(async (req, res) => {
+router.route("/login/admin").post(async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    const admin = await isAdmin(email);
+    const verifiedPassword = await bcrypt.compare(password, admin.password);
+    if (!verifiedPassword) return res.status(401).json("Wrong password.");
+    const token = await jwt.sign(req.body, process.env.SECRET);
+    return res
+      .cookie("token", token, { httpOnly: true })
+      .status(200)
+      .json("Admin login successfully");
+  } catch (err) {
+    return res.status(500).json(err);
+  }
+});
+
+router.route("/login/user").post(async (req, res) => {
   try {
     const { name, email, password } = req.body;
     const user = await isUserAlreadyExist(name, email);
     if (!user) return res.status(404).json("Please sign up.");
     const verifiedPassword = await bcrypt.compare(password, user.password);
     if (!verifiedPassword) return res.status(401).json("Wrong password.");
-    const token = await jwt.sign(req.body, "shhhhh");
+    const token = await jwt.sign(req.body, process.env.SECRET);
     return res
-      .cookie("token", token)
+      .cookie("token", token, { httpOnly: true })
       .status(200)
       .json(user.id);
   } catch (err) {
@@ -60,7 +87,7 @@ router.route("/login").post(async (req, res) => {
 router.route("/logout").post(async (req, res) => {
   try {
     return res
-      .clearCookie("token")
+      .clearCookie("token", { httpOnly: true })
       .status(200)
       .json("You are logged out.");
   } catch (err) {
