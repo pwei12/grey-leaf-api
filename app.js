@@ -14,8 +14,8 @@ if (process.env.NODE_ENV !== "production") {
   host = "https://grey-leaf.herokuapp.com";
 }
 app.use(async (req, res, next) => {
-  await res.header("Access-Control-Allow-Origin", host);
-  await res.header("Access-Control-Allow-Methods", "GET, PUT, POST, DELETE");
+  await res.header("Access-Control-Allow-Origin", "*");
+  // await res.header("Access-Control-Allow-Methods", "GET, PUT, POST, DELETE");
   await res.header(
     "Access-Control-Allow-Headers",
     "Origin, X-Requested-With, Content-Type, Accept"
