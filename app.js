@@ -11,12 +11,15 @@ let host;
 if (process.env.NODE_ENV !== "production") {
   host = "http://localhost:3000";
 } else {
-  host = "https://grey-leaf-api.herokuapp.com";
+  host = "https://grey-leaf.herokuapp.com";
 }
 app.use(async (req, res, next) => {
   await res.header("Access-Control-Allow-Origin", host);
   await res.header("Access-Control-Allow-Methods", "GET, PUT, POST, DELETE");
-  await res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+  await res.header(
+    "Access-Control-Allow-Headers",
+    "Origin, X-Requested-With, Content-Type, Accept"
+  );
   next();
 });
 
