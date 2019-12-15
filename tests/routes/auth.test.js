@@ -138,7 +138,7 @@ describe("/signup", () => {
   });
 });
 
-describe("/login", () => {
+describe("/login/user", () => {
   let mongoServer;
   let db;
   beforeAll(async () => {
@@ -187,7 +187,7 @@ describe("/login", () => {
       password: "123abg"
     };
     await request(app)
-      .post(route("login"))
+      .post(route("login/user"))
       .send(user)
       .expect(200);
   });
@@ -200,7 +200,7 @@ describe("/login", () => {
       password: "hello789"
     };
     await request(app)
-      .post(route("login"))
+      .post(route("login/user"))
       .send(user)
       .expect(200);
   });
@@ -211,7 +211,7 @@ describe("/login", () => {
       password: "123abg"
     };
     await request(app)
-      .post(route("login"))
+      .post(route("login/user"))
       .send(user)
       .expect(404);
   });
@@ -222,7 +222,7 @@ describe("/login", () => {
       password: "hello789"
     };
     await request(app)
-      .post(route("login"))
+      .post(route("login/user"))
       .send(user)
       .expect(404);
   });
@@ -234,7 +234,78 @@ describe("/login", () => {
       password: "123"
     };
     await request(app)
-      .post(route("login"))
+      .post(route("login/user"))
+      .send(user)
+      .expect(401);
+  });
+});
+
+describe("/login/admin", () => {
+  let mongoServer;
+  let db;
+  beforeAll(async () => {
+    mongoServer = new MongoMemoryServer();
+    const mongoUri = await mongoServer.getConnectionString();
+    mongoose.set("useNewUrlParser", true);
+    mongoose.set("useFindAndModify", false);
+    mongoose.set("useCreateIndex", true);
+    await mongoose.connect(mongoUri);
+    db = mongoose.connection;
+
+    await User.insertMany([
+      {
+        admin: true,
+        name: "admin",
+        email: "abc@email.com",
+        password: "hello789",
+        cart: []
+      }
+    ]);
+  });
+
+  afterAll(async () => {
+    await db.dropCollection("users");
+    await mongoose.disconnect();
+    await mongoServer.stop();
+  });
+
+  afterEach(async () => {
+    await bcrypt.compare.mockRestore();
+    await jwt.sign.mockRestore();
+  });
+
+  test("[POST] Should return status code 200 when a admin by email successfully", async () => {
+    await bcrypt.compare.mockResolvedValue(true);
+    await jwt.sign.mockResolvedValue("jwttokenstring");
+    const user = {
+      email: "abc@email.com",
+      password: "hello789"
+    };
+    await request(app)
+      .post(route("login/admin"))
+      .send(user)
+      .expect(200);
+  });
+
+  test("[POST] Should return status code 403 when admin logging in by email is not found", async () => {
+    const user = {
+      email: "s@email.com",
+      password: "hello789"
+    };
+    await request(app)
+      .post(route("login/admin"))
+      .send(user)
+      .expect(403);
+  });
+
+  test("[POST] Should return status code 401 when a admin is not authorized", async () => {
+    await bcrypt.compare.mockResolvedValue(false);
+    const user = {
+      email: "abc@email.com",
+      password: "123"
+    };
+    await request(app)
+      .post(route("login/admin"))
       .send(user)
       .expect(401);
   });
@@ -288,14 +359,14 @@ describe("/logout", () => {
       password: "123abg"
     };
     await request(app)
-      .post(route("login"))
+      .post(route("login/user"))
       .send(user);
     await request(app)
       .post(route("logout"))
       .expect(200);
   });
 
-  xtest("[POST] Should return status code 500 as user has not logged in", async () => {
+  test("[POST] Should return status code 500 as user has not logged in", async () => {
     await request(app)
       .post(route("logout"))
       .expect(500);

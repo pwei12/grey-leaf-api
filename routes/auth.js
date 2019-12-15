@@ -55,6 +55,7 @@ router.route("/login/admin").post(async (req, res) => {
   try {
     const { email, password } = req.body;
     const admin = await isAdmin(email);
+    if (!admin) return res.status(404).json("Please make sure the email is correct.");
     const verifiedPassword = await bcrypt.compare(password, admin.password);
     if (!verifiedPassword) return res.status(401).json("Wrong password.");
     const token = await jwt.sign(req.body, process.env.SECRET);
