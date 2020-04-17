@@ -11,7 +11,7 @@ let host;
 if (process.env.NODE_ENV !== "production") {
   host = "http://localhost:3000";
 } else {
-  host = "https://grey-leaf.netlify.com";
+  host = "https://grey-leaf.netlify.app";
 }
 app.use(async (req, res, next) => {
   await res.header("Access-Control-Allow-Origin", host);
