@@ -259,6 +259,13 @@ describe("/login/admin", () => {
         email: "abc@email.com",
         password: "hello789",
         cart: []
+      },
+      {
+        admin: false,
+        name: "wala",
+        email: "huhu@email.com",
+        password: "hello789",
+        cart: []
       }
     ]);
   });
@@ -274,7 +281,7 @@ describe("/login/admin", () => {
     await jwt.sign.mockRestore();
   });
 
-  test("[POST] Should return status code 200 when a admin by email successfully", async () => {
+  test("[POST] Should return status code 200 when admin sign in by email successfully", async () => {
     await bcrypt.compare.mockResolvedValue(true);
     await jwt.sign.mockResolvedValue("jwttokenstring");
     const user = {
@@ -287,7 +294,7 @@ describe("/login/admin", () => {
       .expect(200);
   });
 
-  test("[POST] Should return status code 403 when admin logging in by email is not found", async () => {
+test("[POST] Should return status code 403 when no user found by email", async () => {
     const user = {
       email: "s@email.com",
       password: "hello789"
@@ -298,11 +305,22 @@ describe("/login/admin", () => {
       .expect(403);
   });
 
-  test("[POST] Should return status code 401 when a admin is not authorized", async () => {
+  test("[POST] Should return status code 403 when non-admin is logging as admin", async () => {
+    const user = {
+      email: "huhu@email.com",
+      password: "hello789",
+    };
+    await request(app)
+      .post(route("login/admin"))
+      .send(user)
+      .expect(403);
+  });
+
+  test("[POST] Should return status code 401 when admin sign in with wrong password", async () => {
     await bcrypt.compare.mockResolvedValue(false);
     const user = {
       email: "abc@email.com",
-      password: "123"
+      password: "hello"
     };
     await request(app)
       .post(route("login/admin"))
@@ -364,11 +382,5 @@ describe("/logout", () => {
     await request(app)
       .post(route("logout"))
       .expect(200);
-  });
-
-  test("[POST] Should return status code 500 as user has not logged in", async () => {
-    await request(app)
-      .post(route("logout"))
-      .expect(500);
   });
 });

@@ -10,7 +10,8 @@ const mongodbUri = process.env.MONGODB_URI;
 mongoose.connect(mongodbUri, {
   useNewUrlParser: true,
   useFindAndModify: false,
-  useCreateIndex: true
+  useCreateIndex: true,
+  useUnifiedTopology: true
 });
 const db = mongoose.connection;
 

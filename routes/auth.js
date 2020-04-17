@@ -4,17 +4,17 @@ const jwt = require("jsonwebtoken");
 const User = require("../models/user");
 const router = express.Router();
 
-const isAdmin = async email => {
+const findAdminByEmail = async email => {
   try {
     const user = await User.findOne({ email });
-    if (!user.admin) return res.sendStatus(403);
+    if (user && !user.admin) return;
     return user;
   } catch (err) {
     throw new Error(err);
   }
 };
 
-const isUserAlreadyExist = async (username, email) => {
+const findUserByNameAndEmail = async (username, email) => {
   try {
     const query = username ? { name: username } : { email };
     const user = await User.findOne(query);
@@ -31,7 +31,7 @@ router.route("/signup").post(async (req, res) => {
     const { name, email, password, confirmedPassword, admin } = req.body;
     if (!(name && email && password && confirmedPassword))
       return res.status(400).json("Incomplete field.");
-    const user = await isUserAlreadyExist(name, email);
+    const user = await findUserByNameAndEmail(name, email);
     if (user) return res.status(403).json("User already exist.");
     if (password !== confirmedPassword)
       return res.status(400).json("Please confirm your password again.");
@@ -54,8 +54,8 @@ router.route("/signup").post(async (req, res) => {
 router.route("/login/admin").post(async (req, res) => {
   try {
     const { email, password } = req.body;
-    const admin = await isAdmin(email);
-    if (!admin) return res.status(404).json("Please make sure the email is correct.");
+    const admin = await findAdminByEmail(email);
+    if (!admin) return res.status(403).json("Permission denied.");
     const verifiedPassword = await bcrypt.compare(password, admin.password);
     if (!verifiedPassword) return res.status(401).json("Wrong password.");
     const token = await jwt.sign(req.body, process.env.SECRET);
@@ -71,7 +71,7 @@ router.route("/login/admin").post(async (req, res) => {
 router.route("/login/user").post(async (req, res) => {
   try {
     const { name, email, password } = req.body;
-    const user = await isUserAlreadyExist(name, email);
+    const user = await findUserByNameAndEmail(name, email);
     if (!user) return res.status(404).json("Please sign up.");
     const verifiedPassword = await bcrypt.compare(password, user.password);
     if (!verifiedPassword) return res.status(401).json("Wrong password.");
